@@ -333,30 +333,30 @@ labelCategoriesCount = [(labels_test==category).sum() for category in labels_cat
 
 
 for i in range(1,17):
-    # accurate = 0
-    # tree_IG = DecisionTreeClassifier(S=S, attributes=attributes_value, labels=labels, labels_categories=labels_categories,
-    #                               max_depth=i,split_scheme='Information Gain')
-    # tree_IG.id3()
-    # #max_depth == 11
-    # for s,y in zip(S,labels):
-    #     predict = tree_IG.predict(s)
-    #     if predict == y:
-    #         accurate+=1
-    # error_rate = (len(labels)-accurate)/len(labels)
-    # print("train_IG",i,error_rate)
+    accurate = 0
+    tree_IG = DecisionTreeClassifier(S=S, attributes=attributes_value, labels=labels, labels_categories=labels_categories,
+                                  max_depth=i,split_scheme='Information Gain')
+    tree_IG.id3()
+    #max_depth == 11
+    for s,y in zip(S,labels):
+        predict = tree_IG.predict(s)
+        if predict == y:
+            accurate+=1
+    error_rate = (len(labels)-accurate)/len(labels)
+    print("train_IG",i,error_rate)
 
-    # accurate = 0
-    # tree_ME = DecisionTreeClassifier(S=S, attributes=attributes_value, labels=labels,
-    #                                  labels_categories=labels_categories,
-    #                                  max_depth=i, split_scheme='Majority Error')
-    # tree_ME.id3()
-    # # # max_depth == 8
-    # for s, y in zip(S, labels):
-    #     predict = tree_ME.predict(s)
-    #     if predict == y:
-    #         accurate += 1
-    # error_rate = (len(labels) - accurate) / len(labels)
-    # print("train_ME", i, error_rate)
+    accurate = 0
+    tree_ME = DecisionTreeClassifier(S=S, attributes=attributes_value, labels=labels,
+                                     labels_categories=labels_categories,
+                                     max_depth=i, split_scheme='Majority Error')
+    tree_ME.id3()
+    # # max_depth == 8
+    for s, y in zip(S, labels):
+        predict = tree_ME.predict(s)
+        if predict == y:
+            accurate += 1
+    error_rate = (len(labels) - accurate) / len(labels)
+    print("train_ME", i, error_rate)
 
     accurate = 0
     tree_GI = DecisionTreeClassifier(S=S, attributes=attributes_value, labels=labels,
@@ -365,19 +365,21 @@ for i in range(1,17):
     tree_GI.id3()
     #max_depth==7
     #
-    # for s, y in zip(S, labels):
-    #     predict = tree_GI.predict(s)
-    #     if predict == y:
-    #         accurate += 1
-    # error_rate = (len(labels) - accurate) / len(labels)
-    # print("train_GI", i, error_rate)
+    for s, y in zip(S, labels):
+        predict = tree_GI.predict(s)
+        if predict == y:
+            accurate += 1
+    error_rate = (len(labels) - accurate) / len(labels)
+    print("train_GI", i, error_rate)
+
+    accurate=0
 
     for s, y in zip(S_test, labels_test):
         predict = tree_GI.predict(s)
         if predict == y:
             accurate += 1
     error_rate = (len(labels_test) - accurate) / len(labels_test)
-    print("train_GI", i, error_rate)
+    print("test_GI", i, error_rate)
 
     # test_accurate = 0
     # for s,y in zip(S_test,labels_test):
