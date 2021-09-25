@@ -1,1 +1,1 @@
-# CS5350-6350-University-of-Utah
+This is a machine learning library developed by Anh Tran forCS5350/6350 in University of Utah
