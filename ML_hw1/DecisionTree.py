@@ -3,7 +3,7 @@ import pandas as pd
 import math
 from collections import deque
 
-description = open("D:\ML_hw1\data-desc.txt", 'r')
+description = open("data-desc.txt", 'r')
 lines = description.readlines()
 labels_categories = lines[2].strip('\n').split(',')
 labels_categories = [x.strip() for x in labels_categories]
