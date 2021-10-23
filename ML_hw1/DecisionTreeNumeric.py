@@ -1,7 +1,7 @@
 import numpy as np
-import pandas as pd
 import math
 from collections import deque
+
 
 def is_integer(n):
     try:
@@ -10,49 +10,6 @@ def is_integer(n):
         return False
     else:
         return float(n).is_integer()
-description = open("bank/data-desc.txt", 'r')
-lines = description.readlines()
-labels_categories = ['yes', 'no']
-labels_categories = [x.strip() for x in labels_categories]
-attributes = lines[16:36]
-attributes_value = []
-while(len(attributes)>0):
-    attribute = attributes.pop(0).strip()
-    if is_integer(attribute[0:1]):
-        if ' age ' in attribute:
-            attributes_value.append('age')
-        elif 'education' in attribute:
-            attributes_value.append('education')
-        else:
-            semi_ind = attribute.index(':')
-            attribute_value = attribute[4:semi_ind].strip()
-            attributes_value.append(attribute_value)
-
-data_dic = {}
-for attribute in attributes_value:
-    data_dic[attribute] = []
-data_dic['label'] = []
-train = open('bank/train.csv', 'r')
-for line in train:
-    values = line.strip('\n').split(',')
-    for index,key in enumerate(data_dic.keys()):
-        data_dic[key].append(values[index])
-
-data_df = pd.DataFrame(columns=data_dic.keys())
-for key, value in data_dic.items():
-    if 'unknown' in value:
-        value_catergory = list(set(value))
-        value_catergory = list(i for i in value_catergory if i != 'unknown')
-        value = np.array(value)
-        value_count = [(value==category).sum() for category in value_catergory]
-        max_ind = value_count.index(max(value_count))
-        replace_value = value_catergory[max_ind]
-        value = [i if i != 'unknown' else replace_value for i in value]
-    data_df[key] = value
-S= np.array(data_df.drop('label', axis=1).copy())
-labels = np.array(data_df['label'].copy())
-
-
 
 class Node:
     def __init__(self):
@@ -63,13 +20,13 @@ class Node:
         self.leaf = True
 
 class DecisionTreeClassifier:
-    def __init__(self, S, attributes, labels, labels_categories, max_depth, split_scheme='Information Gain'):
+    def __init__(self, S, attributes, labels, max_depth, sample_weight=None, split_scheme='Information Gain', feature_sample = None):
         self.S = S  # features or predictors
         self.attributes = np.array(attributes)  # name of the features
         self.labels = np.array(labels)  # categories
-        self.labels_categories = np.array(labels_categories)  # unique categories
+        self.sample_weight = sample_weight
+        self.labels_categories = set(self.labels)  # unique categories
         # number of instances of each category
-        self.labelCategoriesCount = [(self.labels==category).sum() for category in self.labels_categories]
         self.node = None  # nodes
         # calculate the initial entropy of the system
         self.entropy = self._get_entropy(np.arange(len(self.labels)))
@@ -81,14 +38,26 @@ class DecisionTreeClassifier:
         if len(s_ids)==0:
             return 0
         labels = [self.labels[i] for i in s_ids]
-        labels = np.array(labels)
-        # count number of instances of each category
-        label_count = [(labels==category).sum() for category in self.labels_categories]
-        # calculate the entropy for each category and sum them
-        entropy = sum([-count / len(s_ids) * math.log(count / len(s_ids), 2)
-                       if count else 0
-                       for count in label_count
-                       ])
+        if not self.sample_weight:
+            labels = [self.labels[i] for i in s_ids]
+            labels = np.array(labels)
+            # count number of instances of each category
+            label_count = [(labels == category).sum() for category in self.labels_categories]
+            # calculate the entropy for each category and sum them
+            entropy = sum([-count / len(s_ids) * math.log(count / len(s_ids), 2)
+                           if count else 0
+                           for count in label_count
+                           ])
+        else:
+            weight = [self.sample_weight[i] for i in s_ids]
+            labels = np.array(labels)*np.array(weight)
+            # count number of instances of each category
+            pos_label = [label for label in labels if label>0]
+            neg_label = [label for label in labels if label<0]
+            pos_label = np.sum(pos_label)
+            neg_label = -np.sum(neg_label)
+
+            entropy = -pos_label*math.log(pos_label,2)-neg_label*math.log(neg_label,2)
         return entropy
 
     def _get_ME(self, s_ids):
@@ -183,7 +152,48 @@ class DecisionTreeClassifier:
         # assign an unique number to each feature
         feature_ids = [x for x in range(len(self.attributes))]
         # define node variable - instance of the class Node
-        self.node = self._id3_recv(s_ids, feature_ids, self.node, depth)
+        if self.max_depth==1:
+            node = Node()
+            best_feature_name, best_feature_id = self._get_feature_max_information_gain(s_ids, feature_ids)
+            node.value = best_feature_name
+            node.childs = []
+            feature_values = list(set([self.S[s][best_feature_id] for s in s_ids]))
+            labels_in_features = [self.labels[s] for s in s_ids]
+            if is_integer(feature_values[0]):
+                feature_values = [int(value) for value in feature_values]
+                threshold = np.median(feature_values)
+
+                small_value_ids = [s for s in s_ids if int(self.S[s][best_feature_id]) <= threshold]
+                small_value_labels =  [self.labels[s] for s in small_value_ids]
+                small_value_leaf_label = max(set(small_value_labels), key=small_value_labels.count)
+
+                large_value_ids = [s for s in s_ids if int(self.S[s][best_feature_id]) > threshold]
+                large_value_labels = [self.labels[s] for s in large_value_ids]
+                large_value_leaf_label = max(set(large_value_labels), key=large_value_labels.count)
+                if small_value_leaf_label == large_value_leaf_label:
+                    if small_value_labels.count(-small_value_leaf_label) > large_value_labels.count(-large_value_leaf_label):
+                        large_value_leaf_label = -large_value_leaf_label
+                    else:
+                        small_value_leaf_label = -small_value_labels
+
+                small_child = Node()
+                small_child.value = threshold
+                small_child.next = small_value_leaf_label
+
+                large_child = Node()
+                large_child.value = threshold
+                large_child.next = large_value_leaf_label
+                node.childs.append(small_child)
+                node.childs.append(large_child)
+            else:
+                for value in feature_values:
+                    child = Node()
+                    child.value = value  # add a branch from the node to each feature value in our feature
+                    node.childs.append(child)  # append new child node to current node
+                    child.next = max(set(labels_in_features), key=labels_in_features.count)
+            self.node = node
+        else:
+            self.node = self._id3_recv(s_ids, feature_ids, self.node, depth)
 
     def _id3_recv(self, s_ids, feature_ids, node, current_depth):
         if not node:
@@ -196,7 +206,7 @@ class DecisionTreeClassifier:
             node.leaf = True
             return node
         # if there are not more feature to compute or max depth reach, return node with the most probable class
-        if len(feature_ids) == 0 or current_depth == self.max_depth:
+        if len(feature_ids) == 0 or current_depth==self.max_depth:
             node.value = max(set(labels_in_features), key=labels_in_features.count)  # compute mode
             node.leaf = True
             return node
@@ -219,7 +229,6 @@ class DecisionTreeClassifier:
                 node.childs.append(child)  # append new child node to current node
                 if not child_ids:
                     child.next = max(set(labels_in_features), key=labels_in_features.count)
-                    print('')
                 else:
                     if best_feature_id in feature_ids:
                         to_remove = feature_ids.index(best_feature_id)
@@ -263,7 +272,7 @@ class DecisionTreeClassifier:
             elif node.next:
                 print("next:", node.next)
 
-    def predict(self, S, node=None):
+    def single_predict(self, S, node=None):
         result = None
         if node == None:
             node = self.node
@@ -275,117 +284,26 @@ class DecisionTreeClassifier:
                 threshold = node.childs[0].value
                 if float(S[feature_id]) <= threshold:
                     child = node.childs[0]
-                    result = self.predict(S, child.next)
+                    result = self.single_predict(S, child.next)
                 else:
                     child = node.childs[1]
-                    result = self.predict(S, child.next)
+                    result = self.single_predict(S, child.next)
             else:
                 for child in node.childs:
                     if child.value == S[feature_id]:
-                        result = self.predict(S, child.next)
+                        result = self.single_predict(S, child.next)
         elif node.next:
             if node.next.value in self.attributes:
-                result = self.predict(S, node.next)
+                result = self.single_predict(S, node.next)
             else:
                 result = node.next.value
         else:
             result = node.value
         return result
-#
-# tree = DecisionTreeClassifier(S=S, attributes=attributes_value, labels=labels, labels_categories=labels_categories,
-#                               max_depth=3,split_scheme='Information Gain')
-# print(tree.entropy)
-# tree.id3()
-# #
-# accurate = 0
-# for s,y in zip(S,labels):
-#     predict = tree.predict(s)
-#     if predict == y:
-#         accurate+=1
-# error_rate = (len(labels)-accurate)/len(labels)
-# print("train",error_rate)
 
-test_data_dic = {}
-for attribute in attributes_value:
-    test_data_dic[attribute] = []
-test_data_dic['label'] = []
-test = open('bank/test.csv', 'r')
-for line in test:
-    values = line.strip('\n').split(',')
-    for index,key in enumerate(data_dic.keys()):
-        test_data_dic[key].append(values[index])
-
-test_df = pd.DataFrame(columns=test_data_dic.keys())
-for key, value in test_data_dic.items():
-    if 'unknown' in value:
-        value_catergory = list(set(value))
-        value_catergory = list(i for i in value_catergory if i != 'unknown')
-        value = np.array(value)
-        value_count = [(value==category).sum() for category in value_catergory]
-        max_ind = value_count.index(max(value_count))
-        replace_value = value_catergory[max_ind]
-        value = [i if i != 'unknown' else replace_value for i in value]
-    test_df[key] = value
-S_test= np.array(test_df.drop('label', axis=1).copy())
-labels_test = np.array(test_df['label'].copy())
-labelCategoriesCount = [(labels_test==category).sum() for category in labels_categories]
-
-
-
-for i in range(1,17):
-    accurate = 0
-    tree_IG = DecisionTreeClassifier(S=S, attributes=attributes_value, labels=labels, labels_categories=labels_categories,
-                                  max_depth=i,split_scheme='Information Gain')
-    tree_IG.id3()
-    #max_depth == 11
-    for s,y in zip(S,labels):
-        predict = tree_IG.predict(s)
-        if predict == y:
-            accurate+=1
-    error_rate = (len(labels)-accurate)/len(labels)
-    print("train_IG",i,error_rate)
-
-    accurate = 0
-    tree_ME = DecisionTreeClassifier(S=S, attributes=attributes_value, labels=labels,
-                                     labels_categories=labels_categories,
-                                     max_depth=i, split_scheme='Majority Error')
-    tree_ME.id3()
-    # # max_depth == 8
-    for s, y in zip(S, labels):
-        predict = tree_ME.predict(s)
-        if predict == y:
-            accurate += 1
-    error_rate = (len(labels) - accurate) / len(labels)
-    print("train_ME", i, error_rate)
-
-    accurate = 0
-    tree_GI = DecisionTreeClassifier(S=S, attributes=attributes_value, labels=labels,
-                                     labels_categories=labels_categories,
-                                     max_depth=i, split_scheme='Gini Index')
-    tree_GI.id3()
-    #max_depth==7
-    #
-    for s, y in zip(S, labels):
-        predict = tree_GI.predict(s)
-        if predict == y:
-            accurate += 1
-    error_rate = (len(labels) - accurate) / len(labels)
-    print("train_GI", i, error_rate)
-
-    accurate=0
-
-    for s, y in zip(S_test, labels_test):
-        predict = tree_GI.predict(s)
-        if predict == y:
-            accurate += 1
-    error_rate = (len(labels_test) - accurate) / len(labels_test)
-    print("test_GI", i, error_rate)
-
-    # test_accurate = 0
-    # for s,y in zip(S_test,labels_test):
-    #     predict = tree.predict(s)
-    #     if predict == y:
-    #         test_accurate+=1
-    # error_rate_test = (len(labels_test)-test_accurate)/len(labels_test)
-    # print("test",i,error_rate_test)
-
+    def predict(self, S):
+        y_pred = []
+        for s in S:
+            pred = self.single_predict(s)
+            y_pred.append(pred)
+        return np.array(y_pred)
