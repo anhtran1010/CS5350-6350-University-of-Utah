@@ -5,6 +5,7 @@ from LinearRegression.LMS import *
 from DataPreprocess import *
 from DecisionTreeNumeric import *
 import argparse
+import pickle
 
 parser = argparse.ArgumentParser(description='Pipeline commandline argument')
 parser.add_argument("--data_dir", type=str, default="bank/", help="The directory of the dataset.")
@@ -67,6 +68,10 @@ if __name__ == "__main__":
             y_pred = predict(predictor, X_test)
             error = sum(np.not_equal(Y_test, y_pred)) / len(Y_test)
             print("Train error: ", error)
+
+    file_to_store = open(model+".pickle", "wb")
+    pickle.dump(predictor, file_to_store)
+    file_to_store.close()
 
 
 
