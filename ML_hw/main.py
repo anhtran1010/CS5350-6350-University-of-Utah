@@ -17,7 +17,7 @@ parser.add_argument("--max_depth", type=int, default=-1)
 parser.add_argument("--split_scheme", type=str, default="Information Gain")
 parser.add_argument("--train_error", type=bool, default=True)
 parser.add_argument("--test_error", type=bool, default=True)
-
+parser.add_argument("--SGD", type=bool, default=False, help="default will be batch gradient descent")
 args = parser.parse_args()
 
 if __name__ == "__main__":
@@ -41,6 +41,7 @@ if __name__ == "__main__":
                        sample=args.data_sample)
     elif model == "LMS":
         predictor = LMS()
+        predictor.fit(X_train, Y_train, SGD=args.SGD)
     else:
         print("Please choose one of the available models")
         exit()
