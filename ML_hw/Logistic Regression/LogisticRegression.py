@@ -18,7 +18,6 @@ def logistic_regression(X, Y, learning_rate=0.01, n_epoch=100, variance=1, alpha
             error = y * prediction
             if MAP:
                 gradient = (1 - sigmoid(error)) * y * x + 2 * weight / variance
-                print(gradient)
             else:
                 gradient = (1 - sigmoid(error)) * y * x
             weight -= lr * gradient
