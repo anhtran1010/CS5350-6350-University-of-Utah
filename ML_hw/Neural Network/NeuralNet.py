@@ -20,7 +20,7 @@ class NeuralNet():
             input_dim = layer['input_dim']
             output_dim = layer['output_dim']
 
-            params['W' + str(layer_id)] = np.zeros((output_dim, input_dim))
+            params['W' + str(layer_id)] = np.random.rand(output_dim,input_dim)*0.1
             params['b' + str(layer_id)] = np.zeros((output_dim, 1))
 
         return params
@@ -171,7 +171,7 @@ X_test = raw_data_test.iloc[:, :-1].values
 Y_test = raw_data_test.iloc[:, -1].values
 
 # #,10,25,50,100
-hidden_layer_sizes = [5,10,25,50,100]
+hidden_layer_sizes = [5,10,25,50]
 learning_rate= 0.01
 alpha = 5
 input_shape = X_train.shape[-1]
